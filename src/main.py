@@ -144,9 +144,11 @@ class McpServer:
         """
         method = request.get("method")
         
-        if method == "list_tools":
+        if method == "initialize":
+            return self._handle_initialize(request.get("params", {}))
+        elif method == "list_tools" or method == "tools/list":
             return self._handle_list_tools()
-        elif method == "call_tool":
+        elif method == "call_tool" or method == "tools/call":
             return self._handle_call_tool(request.get("params", {}))
         else:
             return {
@@ -155,6 +157,29 @@ class McpServer:
                     "message": f"Method not found: {method}",
                 }
             }
+    
+    def _handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle an initialize request.
+        
+        Args:
+            params: The parameters for the initialize request.
+            
+        Returns:
+            The MCP response.
+        """
+        return {
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {
+                    "name": "fusion360-mcp-server",
+                    "version": "0.1.0"
+                },
+                "capabilities": {
+                    "tools": {}
+                }
+            }
+        }
     
     def _handle_list_tools(self) -> Dict[str, Any]:
         """
