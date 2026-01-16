@@ -132,7 +132,7 @@ class McpServer:
         """Initialize the MCP server."""
         self.tools = {tool["name"]: tool for tool in TOOL_REGISTRY}
     
-    def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    def handle_request(self, request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Handle an MCP request.
         
@@ -140,10 +140,19 @@ class McpServer:
             request: The MCP request.
             
         Returns:
-            The MCP response (JSON-RPC 2.0 formatted).
+            The MCP response (JSON-RPC 2.0 formatted), or None for notifications.
         """
         request_id = request.get("id")
         method = request.get("method")
+        
+        # Handle notifications (requests without an id)
+        # Notifications should not receive a response
+        if request_id is None:
+            # Process notification methods silently
+            if method and method.startswith("notifications/"):
+                return None  # Don't respond to notifications
+            # For other methods without ID, still don't respond
+            return None
         
         # Build base response with JSON-RPC 2.0 fields
         response = {
@@ -286,8 +295,10 @@ def run_mcp_server():
         try:
             request = json.loads(line)
             response = server.handle_request(request)
-            sys.stdout.write(json.dumps(response) + "\n")
-            sys.stdout.flush()
+            # Only write response if it's not None (notifications don't get responses)
+            if response is not None:
+                sys.stdout.write(json.dumps(response) + "\n")
+                sys.stdout.flush()
         except json.JSONDecodeError:
             sys.stderr.write(f"Error: Invalid JSON: {line}\n")
             sys.stderr.flush()
