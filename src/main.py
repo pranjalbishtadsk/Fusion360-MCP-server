@@ -140,23 +140,36 @@ class McpServer:
             request: The MCP request.
             
         Returns:
-            The MCP response.
+            The MCP response (JSON-RPC 2.0 formatted).
         """
+        request_id = request.get("id")
         method = request.get("method")
         
+        # Build base response with JSON-RPC 2.0 fields
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id
+        }
+        
         if method == "initialize":
-            return self._handle_initialize(request.get("params", {}))
+            result = self._handle_initialize(request.get("params", {}))
+            response["result"] = result
         elif method == "list_tools" or method == "tools/list":
-            return self._handle_list_tools()
+            result = self._handle_list_tools()
+            response["result"] = result
         elif method == "call_tool" or method == "tools/call":
-            return self._handle_call_tool(request.get("params", {}))
+            result = self._handle_call_tool(request.get("params", {}))
+            if "error" in result:
+                response["error"] = result["error"]
+            else:
+                response["result"] = result
         else:
-            return {
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {method}",
-                }
+            response["error"] = {
+                "code": -32601,
+                "message": f"Method not found: {method}",
             }
+        
+        return response
     
     def _handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -166,18 +179,16 @@ class McpServer:
             params: The parameters for the initialize request.
             
         Returns:
-            The MCP response.
+            The result object (not full response).
         """
         return {
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "serverInfo": {
-                    "name": "fusion360-mcp-server",
-                    "version": "0.1.0"
-                },
-                "capabilities": {
-                    "tools": {}
-                }
+            "protocolVersion": "2024-11-05",
+            "serverInfo": {
+                "name": "fusion360-mcp-server",
+                "version": "0.1.0"
+            },
+            "capabilities": {
+                "tools": {}
             }
         }
     
@@ -186,7 +197,7 @@ class McpServer:
         Handle a list_tools request.
         
         Returns:
-            The MCP response.
+            The result object (not full response).
         """
         tools = []
         for tool in TOOL_REGISTRY:
@@ -209,7 +220,7 @@ class McpServer:
                 },
             })
         
-        return {"result": {"tools": tools}}
+        return {"tools": tools}
     
     def _handle_call_tool(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -219,7 +230,7 @@ class McpServer:
             params: The parameters for the tool call.
             
         Returns:
-            The MCP response.
+            The result object or error object (not full response).
         """
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
@@ -243,14 +254,12 @@ class McpServer:
         try:
             script = generate_script(tool_name, arguments)
             return {
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": script,
-                        }
-                    ]
-                }
+                "content": [
+                    {
+                        "type": "text",
+                        "text": script,
+                    }
+                ]
             }
         except ValueError as e:
             return {
