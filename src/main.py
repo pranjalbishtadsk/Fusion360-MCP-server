@@ -213,7 +213,7 @@ class McpServer:
             tools.append({
                 "name": tool["name"],
                 "description": tool["description"],
-                "input_schema": {
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         name: {
